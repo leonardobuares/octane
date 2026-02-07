@@ -44,6 +44,47 @@ class StartSwooleCommand extends Command implements SignalableCommandInterface
      */
     protected $hidden = true;
 
+        /**
+     * Indicates whether the command runs in a symlinked directory path.
+     */
+    protected bool $isSymlinked = false;
+
+    /**
+     * The reliable directory path to use, relative to the Octane path.
+     */
+    protected string $dir;
+
+    /**
+     * The actual path, rather than the symlinked path.
+     */
+    protected string $real_cwd;
+
+    /**
+     * The reliable working directory path of the process.
+     * Respects the symlink path and does not convert to the real path.
+     */
+    protected string $pwd;
+
+    public function __construct()
+    {
+        $this->dir = __DIR__;
+        $this->real_cwd = base_path();
+        $this->setPwd();
+
+        if ($this->pwd !== $this->real_cwd) {
+            $this->isSymlinked = true;
+            $this->dir = str_replace($this->real_cwd, $this->pwd, $this->dir);
+            app()->setBasePath($this->pwd);
+
+            $log_file = config('octane.swoole.options.log_file');
+            if ($log_file) {
+                config(['octane.swoole.options.log_file' => $this->realpath($log_file)]);
+            }
+        }
+
+        parent::__construct();
+    }
+
     /**
      * Handle the command.
      *
@@ -83,9 +124,10 @@ class StartSwooleCommand extends Command implements SignalableCommandInterface
             ...config('octane.swoole.php_options', []),
             config('octane.swoole.command', 'swoole-server'),
             $serverStateFile->path(),
-        ], realpath(__DIR__.'/../../bin'), [
+        ], $this->realpath($this->dir.'/../../bin'), [
             'APP_ENV' => app()->environment(),
             'APP_BASE_PATH' => base_path(),
+            'APP_RELEASE_BIN_DIR' => $this->realpath($this->dir.'/../../bin'),
             'LARAVEL_OCTANE' => 1,
         ]))->start();
 
@@ -136,6 +178,54 @@ class StartSwooleCommand extends Command implements SignalableCommandInterface
             'task_worker_num' => $this->taskWorkerCount($extension),
             'worker_num' => $this->workerCount($extension),
         ];
+    }
+
+    /**
+     * Returns the real path of a file. If the working directory path is symlinked,
+     * it returns the file location relative to the reliable working directory path of the process,
+     * instead of the real path.
+     */
+    protected function realpath(string $file): string
+    {
+        $realPath = realpath($file);
+
+        if (! $this->isSymlinked) {
+            return $realPath;
+        }
+
+        return str_replace($this->real_cwd, $this->pwd, $realPath);
+    }
+
+    /**
+     * Determines and sets the reliable working directory path of the process.
+     * Respects the symlink path and does not convert to the real path.
+     */
+    protected function setPwd(): void
+    {
+        $working_dir = dirname(request()->server('SCRIPT_NAME'));
+        if (($starts_as_curr = str_starts_with($working_dir, './')) || str_starts_with($working_dir, '/')) {
+            if ($starts_as_curr) {
+                $working_dir = substr($working_dir, 2);
+            }
+
+            $cwd = getcwd();
+            if (! str_starts_with($cwd, $working_dir)) {
+                $this->pwd = "$cwd/$working_dir";
+            } else {
+                $this->pwd = $working_dir;
+            }
+        } elseif ($working_dir === '.') {
+            // This part comes into action only if the server changes to
+            // the base path directory before running the Artisan command.
+            // eg. cd /www/current && php artisan octane:start
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                $this->pwd = trim(shell_exec('cd')); // For Windows
+            } else {
+                $this->pwd = trim(shell_exec('pwd')); // For Unix-like systems
+            }
+        } else {
+            $this->pwd = $this->real_cwd;
+        }
     }
 
     /**
