@@ -1,6 +1,16 @@
 # Release Notes
 
-## [Unreleased](https://github.com/laravel/octane/compare/v2.17.0...2.x)
+## [Unreleased](https://github.com/laravel/octane/compare/v2.17.1...2.x)
+
+## [v2.17.1](https://github.com/laravel/octane/compare/v2.17.0...v2.17.1) - 2026-03-25
+
+Fork release based on `laravel/octane` `v2.17.1`.
+
+This fork release keeps the internal Swoole reload and symlink-path patch already carried in `src/Commands/StartSwooleCommand.php` and `bin/swoole-server`.
+
+Upstream changes:
+
+- fix Octane Store handling
 
 ## [v2.17.0](https://github.com/laravel/octane/compare/v2.16.0...v2.17.0) - 2026-03-18
 
