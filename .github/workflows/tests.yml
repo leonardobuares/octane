@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.1, 8.2, 8.3, 8.4]
+        php: [8.1, 8.2, 8.3, 8.4, 8.5]
         laravel: [10, 11, 12]
         driver: [swoole, openswoole, 'roadrunner/frankenphp']
         exclude:
@@ -24,8 +24,16 @@ jobs:
             laravel: 11
           - php: 8.1
             laravel: 12
+          - php: 8.1
+            laravel: 13
+          - php: 8.2
+            laravel: 13
           - php: 8.4
             laravel: 10
+          - php: 8.5
+            laravel: 10
+          - php: 8.5
+            laravel: 11
           - php: 8.1
             driver: openswoole
 
